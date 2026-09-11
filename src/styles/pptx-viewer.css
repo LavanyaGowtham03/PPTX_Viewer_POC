@@ -1,0 +1,1073 @@
+/* ==========================================================================
+   PPTX Viewer — Master Stylesheet
+   Covers: Welcome/Browse Screen, Layout, Toolbar, Thumbnail Panel,
+           Slide Canvas, All Element Types (TextBox, Shape, Picture, Table),
+           Animations, Transitions, Responsive Scaling
+   Coordinates map directly from JSON: x → left, y → top, width/height in px
+   ========================================================================== */
+
+/* ==========================================================================
+   1. CSS Custom Properties (Design Tokens)
+   ========================================================================== */
+
+:root {
+  /* Viewer dimensions — overridden at runtime by JS from presentation.width / presentation.height */
+  --pptx-slide-width: 960px;        /* JS: element.style.setProperty('--pptx-slide-width',  w + 'px') */
+  --pptx-slide-height: 540px;       /* JS: element.style.setProperty('--pptx-slide-height', h + 'px') */
+  --pptx-slide-scale: 1;            /* JS: updated by ResizeObserver — availableWidth / presentation.width */
+  --pptx-thumbnail-width: 160px;    /* Fixed UI constant — not from JSON */
+  --pptx-thumbnail-height: 90px;    /* Recalculated by JS: 160 / (width/height) */
+  --pptx-thumbnail-scale: 0.1667;   /* JS: 160 / presentation.width — recalculated on each JSON load */
+  --pptx-slide-ratio: 16 / 9;       /* JS: width / height from JSON; 16/9 is only the pre-load default */
+
+  /* Panel & toolbar sizes */
+  --pptx-toolbar-height: 48px;
+  --pptx-panel-width: 192px;        /* thumbnail + padding */
+
+  /* Colors */
+  --pptx-toolbar-bg: #f3f4f6;
+  --pptx-toolbar-border: #d1d5db;
+  --pptx-toolbar-btn-color: #374151;
+  --pptx-toolbar-btn-active-bg: #2563eb;
+  --pptx-toolbar-btn-active-color: #ffffff;
+  --pptx-toolbar-btn-hover-bg: #e5e7eb;
+  --pptx-panel-bg: #f9fafb;
+  --pptx-panel-border: #e5e7eb;
+  --pptx-thumbnail-border: #d1d5db;
+  --pptx-thumbnail-active-border: #2563eb;
+  --pptx-slide-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --pptx-viewer-bg: #e5e7eb;
+
+  /* Typography */
+  --pptx-ui-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --pptx-ui-font-size: 13px;
+
+  /* Transitions */
+  --pptx-transition-speed: 0.3s;
+  --pptx-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* ==========================================================================
+   2. Viewer Shell — Full-Height Flex Container
+   ========================================================================== */
+
+.pptx-viewer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  font-family: var(--pptx-ui-font);
+  font-size: var(--pptx-ui-font-size);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--pptx-viewer-bg);
+}
+
+.pptx-viewer *,
+.pptx-viewer *::before,
+.pptx-viewer *::after {
+  box-sizing: border-box;
+}
+
+
+/* PROMPT 1 stub output shown after a successful JSON load
+   (replaced by the real viewer UI in later steps). */
+.pptx-viewer__stub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 24px;
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+}
+
+
+/* ==========================================================================
+   2a. Welcome / Browse Screen (browse-first entry point)
+   Shown until a valid PPTX JSON file is loaded.
+   ========================================================================== */
+
+.pptx-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  background: var(--pptx-viewer-bg);
+}
+
+.pptx-welcome__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+  padding: 48px 40px;
+  background: #ffffff;
+  border: 1px solid var(--pptx-panel-border);
+  border-radius: 12px;
+  box-shadow: var(--pptx-slide-shadow);
+  text-align: center;
+}
+
+.pptx-welcome__icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.pptx-welcome__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.pptx-welcome__subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.pptx-welcome__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 6px;
+  background: var(--pptx-toolbar-btn-active-bg);
+  color: var(--pptx-toolbar-btn-active-color);
+  font-family: var(--pptx-ui-font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--pptx-transition-speed) var(--pptx-transition-easing);
+}
+
+.pptx-welcome__btn:hover {
+  background: #1d4ed8;
+}
+
+.pptx-welcome__btn:focus-visible {
+  outline: 2px solid var(--pptx-toolbar-btn-active-bg);
+  outline-offset: 3px;
+}
+
+.pptx-welcome__hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.pptx-welcome__error {
+  font-size: 13px;
+  color: #dc2626;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* Visually hidden native file inputs (welcome + toolbar use the same clip). */
+.pptx-welcome__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pptx-toolbar__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+
+/* ==========================================================================
+   3. Toolbar
+   ========================================================================== */
+
+/* Column wrapper: tab bar row + active-tab panel strip. */
+.pptx-toolbar-root {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.pptx-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-height: var(--pptx-toolbar-height);
+  padding: 0 12px;
+  background: var(--pptx-toolbar-bg);
+  border-bottom: 1px solid var(--pptx-toolbar-border);
+  flex-shrink: 0;
+  user-select: none;
+  z-index: 10;
+}
+
+/* Tab-style buttons: Home, Animations, Transitions, Search */
+.pptx-toolbar__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--pptx-toolbar-btn-color);
+  font-family: var(--pptx-ui-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  transition: color var(--pptx-transition-speed) var(--pptx-transition-easing),
+              background var(--pptx-transition-speed) var(--pptx-transition-easing);
+}
+
+.pptx-toolbar__tab:hover {
+  background: var(--pptx-toolbar-btn-hover-bg);
+  color: #111827;
+}
+
+.pptx-toolbar__tab.is-active {
+  color: var(--pptx-toolbar-btn-active-bg);
+  border-bottom-color: var(--pptx-toolbar-btn-active-bg);
+}
+
+/* Content strip directly under the active tab */
+.pptx-toolbar__panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 40px;
+  padding: 6px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--pptx-panel-border);
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--pptx-toolbar-btn-color);
+}
+
+/* Panel content containers */
+.pptx-toolbar__panel-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pptx-toolbar__panel-text {
+  color: #6b7280;
+}
+
+/* Toggle control (Animations / Transitions panels) */
+.pptx-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.pptx-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--pptx-toolbar-btn-active-bg);
+  cursor: pointer;
+}
+
+/* Generic small action button (e.g. Search panel "Load JSON File") */
+.pptx-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--pptx-toolbar-border);
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--pptx-toolbar-btn-color);
+  font-family: var(--pptx-ui-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  transition: background var(--pptx-transition-speed) var(--pptx-transition-easing);
+}
+
+.pptx-btn:hover {
+  background: var(--pptx-toolbar-btn-hover-bg);
+}
+
+
+/* ==========================================================================
+   4. Body Area — Thumbnail Panel + Main Slide Area
+   ========================================================================== */
+
+.pptx-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+
+/* ==========================================================================
+   5. Thumbnail Panel (Left Column)
+   ========================================================================== */
+
+.pptx-thumbnail-panel {
+  display: flex;
+  flex-direction: column;
+  width: var(--pptx-panel-width);
+  min-width: var(--pptx-panel-width);
+  background: var(--pptx-panel-bg);
+  border-right: 1px solid var(--pptx-panel-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 8px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Individual thumbnail wrapper */
+.pptx-thumbnail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px;
+  transition: background var(--pptx-transition-speed) var(--pptx-transition-easing);
+}
+
+.pptx-thumbnail:hover {
+  background: var(--pptx-toolbar-btn-hover-bg);
+}
+
+.pptx-thumbnail.is-active {
+  background: #dbeafe;
+}
+
+/* Thumbnail canvas: scaled-down slide preview */
+.pptx-thumbnail__canvas {
+  position: relative;
+  width: var(--pptx-thumbnail-width);
+  height: var(--pptx-thumbnail-height);
+  overflow: hidden;
+  border: 2px solid var(--pptx-thumbnail-border);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.pptx-thumbnail.is-active .pptx-thumbnail__canvas {
+  border-color: var(--pptx-thumbnail-active-border);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
+}
+
+/* The inner slide content scaled down to thumbnail size.
+   --pptx-thumbnail-scale is recalculated by JS on every JSON load:
+   thumbnailScale = THUMBNAIL_WIDTH / presentation.width  */
+.pptx-thumbnail__slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--pptx-slide-width);
+  height: var(--pptx-slide-height);
+  transform-origin: top left;
+  transform: scale(var(--pptx-thumbnail-scale));
+  pointer-events: none;
+}
+
+/* Slide number label under thumbnail */
+.pptx-thumbnail__label {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.pptx-thumbnail.is-active .pptx-thumbnail__label {
+  color: var(--pptx-toolbar-btn-active-bg);
+  font-weight: 600;
+}
+
+
+/* ==========================================================================
+   6. Main Slide Render Area
+   ========================================================================== */
+
+.pptx-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--pptx-viewer-bg);
+  padding: 24px;
+  position: relative;
+}
+
+/* Wrapper that enforces aspect ratio and clips overflow.
+   --pptx-slide-ratio is set by applyPresentationDimensions() from
+   presentation.width/height (JSON-driven); 16/9 is only the pre-load default. */
+.pptx-slide-wrapper {
+  position: relative;
+  aspect-ratio: var(--pptx-slide-ratio, 16 / 9);
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Outer slide container — receives background color and shadow.
+   width/height come from --pptx-slide-width / --pptx-slide-height,
+   which are set at runtime from presentation.width / presentation.height in the JSON.
+   transform: scale(var(--pptx-slide-scale)) is applied by JS via ResizeObserver. */
+.pptx-slide {
+  position: relative;
+  width: var(--pptx-slide-width);
+  height: var(--pptx-slide-height);
+  background-color: #ffffff;   /* overridden inline from slide.background in JSON */
+  overflow: hidden;
+  box-shadow: var(--pptx-slide-shadow);
+  transform-origin: top left;
+  transform: scale(var(--pptx-slide-scale));
+}
+
+
+/* ==========================================================================
+   7. Element Base Styles — Shared by All Element Types
+   ========================================================================== */
+
+/* All elements are absolutely positioned within the slide */
+.pptx-element {
+  position: absolute;
+  /* left, top, width, height set inline from JSON x, y, width, height */
+  box-sizing: border-box;
+  /* Prevent pointer events from interfering with slide navigation */
+  pointer-events: none;
+}
+
+/* Rotation: applied when element.rotation is defined */
+.pptx-element--rotated {
+  transform-origin: center center;
+  /* transform: rotate(Xdeg) applied inline */
+}
+
+
+/* ==========================================================================
+   8. Text Box Element
+   JSON: type = "textbox"
+   DOM:  .pptx-element.pptx-textbox > p (one per \n-split line)
+   ========================================================================== */
+
+.pptx-textbox {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow: hidden;
+  /* font-family, font-size, color, font-weight, font-style, text-decoration
+     are all set as inline styles from element.style */
+}
+
+.pptx-textbox p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Text formatting helper classes (applied to the element or its children) */
+.pptx-text--bold        { font-weight: bold; }
+.pptx-text--italic      { font-style: italic; }
+.pptx-text--underline   { text-decoration: underline; }
+.pptx-text--strike      { text-decoration: line-through; }
+
+/* Combined underline + strikethrough */
+.pptx-text--underline.pptx-text--strike {
+  text-decoration: underline line-through;
+}
+
+/* Alignment helpers */
+.pptx-text--left    { text-align: left; }
+.pptx-text--center  { text-align: center; }
+.pptx-text--right   { text-align: right; }
+.pptx-text--justify { text-align: justify; }
+
+
+/* ==========================================================================
+   9. Shape Element
+   JSON: type = "shape", shapeType = oval | triangle | blockArrow |
+         flowchartTerminator | calloutRectangle
+   DOM:  .pptx-element.pptx-shape > svg (fills 100% × 100%)
+   Per-type modifiers (.pptx-shape--oval etc.) exist for targeted styling;
+   all fill/stroke attributes are applied inline by ShapeRenderer from
+   element.fill / element.stroke / element.strokeWidth.
+   ========================================================================== */
+
+.pptx-shape svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Text label overlay centered inside the shape */
+.pptx-shape__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px;
+  pointer-events: none;
+  overflow: hidden;
+  line-height: 1.2;
+  /* font-family, font-size, color, font-weight etc. set inline from style */
+}
+
+/* Shape-type modifier classes are applied by ShapeRenderer for optional
+   targeted styling; geometry and colors are built inline in the SVG. */
+
+
+/* ==========================================================================
+   10. Picture Element
+   JSON: type = "picture"
+   DOM:  .pptx-element.pptx-picture > img
+   ========================================================================== */
+
+.pptx-picture {
+  overflow: hidden;
+}
+
+.pptx-picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+}
+
+/* Broken / missing image placeholder */
+.pptx-picture__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  color: #9ca3af;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.pptx-picture__placeholder::before {
+  content: '⚠️';
+  font-size: 24px;
+}
+
+
+/* ==========================================================================
+   11. Table Element
+   JSON: type = "table"
+   DOM:  .pptx-element.pptx-table > table > tbody > tr > td
+   ========================================================================== */
+
+.pptx-table {
+  overflow: hidden;
+}
+
+.pptx-table table {
+  width: 100%;
+  height: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.pptx-table td,
+.pptx-table th {
+  padding: 4px 8px;
+  vertical-align: middle;
+  border: 1px solid #d1d5db;
+  overflow: hidden;
+  word-break: break-word;
+  /* background-color, border-color, font-* set inline from cell.style */
+}
+
+
+/* ==========================================================================
+   12. Animation Keyframes
+   Names map to element.animation.type values in the JSON
+   ========================================================================== */
+
+/* Animated elements start invisible */
+.pptx-animated {
+  opacity: 0;
+  /* animation-name, animation-duration, animation-delay set inline */
+  animation-fill-mode: forwards;
+  animation-timing-function: ease-out;
+}
+
+/* Disable all animations when the toolbar "Animations" toggle is OFF */
+.pptx-animations-off .pptx-animated {
+  opacity: 1 !important;
+  animation: none !important;
+}
+
+/* ── fadeIn ── */
+@keyframes pptx-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── flyIn (slides up from below while fading in) ── */
+@keyframes pptx-flyIn {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── flyIn with rotation (preserve existing rotation) ── */
+@keyframes pptx-flyIn-rotated {
+  from {
+    opacity: 0;
+    translate: 0 60px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* ── zoomIn (grows from small point to full size) ── */
+@keyframes pptx-zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── bounceIn (spring/bounce pop effect) ── */
+@keyframes pptx-bounceIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  50%  { opacity: 1; transform: scale(1.1); }
+  70%  { transform: scale(0.9); }
+  85%  { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── fadedSwivel (fade in while rotating around Y axis — PowerPoint "Swivel") ── */
+@keyframes pptx-fadedSwivel {
+  0%   { opacity: 0; transform: perspective(400px) rotateY(90deg); }
+  40%  { opacity: 1; transform: perspective(400px) rotateY(-15deg); }
+  70%  { transform: perspective(400px) rotateY(10deg); }
+  100% { opacity: 1; transform: perspective(400px) rotateY(0deg); }
+}
+
+/* Animation name class map — assigned by AnimationEngine.ts */
+.pptx-anim--fadeIn        { animation-name: pptx-fadeIn; }
+.pptx-anim--flyIn         { animation-name: pptx-flyIn; }
+/* Rotation-preserving flyIn — used by AnimationEngine when the element
+   has an inline rotate() transform; the keyframe animates the separate
+   `translate` property so the rotation is never clobbered. */
+.pptx-anim--flyIn-rotated { animation-name: pptx-flyIn-rotated; }
+.pptx-anim--zoomIn        { animation-name: pptx-zoomIn; }
+.pptx-anim--bounceIn      { animation-name: pptx-bounceIn; }
+.pptx-anim--fadedSwivel   { animation-name: pptx-fadedSwivel; }
+
+
+/* ==========================================================================
+   13. Slide Transitions
+   Applied by TransitionEngine.ts via CSS class swaps on .pptx-slide
+   ========================================================================== */
+
+/* Base transition states */
+.pptx-slide-enter {
+  position: absolute;
+  inset: 0;
+}
+
+.pptx-slide-leave {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── fade transition ── */
+.pptx-slide--transition-fade.pptx-slide-leave-active {
+  animation: pptx-slide-fade-out var(--pptx-slide-transition-duration, 300ms)
+             var(--pptx-transition-easing) forwards;
+}
+
+.pptx-slide--transition-fade.pptx-slide-enter-active {
+  animation: pptx-slide-fade-in var(--pptx-slide-transition-duration, 300ms)
+             var(--pptx-transition-easing) forwards;
+}
+
+@keyframes pptx-slide-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes pptx-slide-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── push left transition ── */
+.pptx-slide--transition-push-left.pptx-slide-leave-active {
+  animation: pptx-slide-push-leave-left var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+.pptx-slide--transition-push-left.pptx-slide-enter-active {
+  animation: pptx-slide-push-enter-left var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+@keyframes pptx-slide-push-leave-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+@keyframes pptx-slide-push-enter-left {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* ── push right transition ── */
+.pptx-slide--transition-push-right.pptx-slide-leave-active {
+  animation: pptx-slide-push-leave-right var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+.pptx-slide--transition-push-right.pptx-slide-enter-active {
+  animation: pptx-slide-push-enter-right var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+@keyframes pptx-slide-push-leave-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+@keyframes pptx-slide-push-enter-right {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+/* ── push up transition ── */
+.pptx-slide--transition-push-up.pptx-slide-leave-active {
+  animation: pptx-slide-push-leave-up var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+.pptx-slide--transition-push-up.pptx-slide-enter-active {
+  animation: pptx-slide-push-enter-up var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+@keyframes pptx-slide-push-leave-up {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-100%); }
+}
+@keyframes pptx-slide-push-enter-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── push down transition ── */
+.pptx-slide--transition-push-down.pptx-slide-leave-active {
+  animation: pptx-slide-push-leave-down var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+.pptx-slide--transition-push-down.pptx-slide-enter-active {
+  animation: pptx-slide-push-enter-down var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+@keyframes pptx-slide-push-leave-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+@keyframes pptx-slide-push-enter-down {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── wipe left (clip-path reveal) ── */
+.pptx-slide--transition-wipe-left.pptx-slide-enter-active {
+  animation: pptx-slide-wipe-in-left var(--pptx-slide-transition-duration, 400ms)
+             linear forwards;
+}
+@keyframes pptx-slide-wipe-in-left {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0% 0 0); }
+}
+
+/* ── wipe right ── */
+.pptx-slide--transition-wipe-right.pptx-slide-enter-active {
+  animation: pptx-slide-wipe-in-right var(--pptx-slide-transition-duration, 400ms)
+             linear forwards;
+}
+@keyframes pptx-slide-wipe-in-right {
+  from { clip-path: inset(0 0 0 100%); }
+  to   { clip-path: inset(0 0 0 0%); }
+}
+
+/* ── wipe up ── */
+.pptx-slide--transition-wipe-up.pptx-slide-enter-active {
+  animation: pptx-slide-wipe-in-up var(--pptx-slide-transition-duration, 400ms)
+             linear forwards;
+}
+@keyframes pptx-slide-wipe-in-up {
+  from { clip-path: inset(100% 0 0 0); }
+  to   { clip-path: inset(0% 0 0 0); }
+}
+
+/* ── wipe down ── */
+.pptx-slide--transition-wipe-down.pptx-slide-enter-active {
+  animation: pptx-slide-wipe-in-down var(--pptx-slide-transition-duration, 400ms)
+             linear forwards;
+}
+@keyframes pptx-slide-wipe-in-down {
+  from { clip-path: inset(0 0 100% 0); }
+  to   { clip-path: inset(0 0 0% 0); }
+}
+
+/* ── zoom transition ── */
+.pptx-slide--transition-zoom.pptx-slide-leave-active {
+  animation: pptx-slide-zoom-out var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+.pptx-slide--transition-zoom.pptx-slide-enter-active {
+  animation: pptx-slide-zoom-in var(--pptx-slide-transition-duration, 400ms)
+             var(--pptx-transition-easing) forwards;
+}
+@keyframes pptx-slide-zoom-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.5); }
+}
+@keyframes pptx-slide-zoom-in {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Disable all transitions when the toolbar "Transitions" toggle is OFF */
+.pptx-transitions-off .pptx-slide-leave-active,
+.pptx-transitions-off .pptx-slide-enter-active {
+  animation: none !important;
+}
+
+
+/* ==========================================================================
+   14. Responsive Scaling
+   The .pptx-slide is always 960×540 internally.
+   JS ResizeObserver applies transform: scale(factor) + adjusts wrapper size.
+   These rules ensure the wrapper stays centered and overflow is hidden.
+   ========================================================================== */
+
+.pptx-slide-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Scale wrapper: sized by JS to match scaled slide dimensions */
+.pptx-slide-scale-root {
+  position: relative;
+  transform-origin: top left;
+  /* transform: scale(n) applied inline by JS */
+}
+
+
+/* ==========================================================================
+   15. Scrollbars — Thumbnail Panel
+   ========================================================================== */
+
+.pptx-thumbnail-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pptx-thumbnail-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pptx-thumbnail-panel::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.pptx-thumbnail-panel::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+
+/* ==========================================================================
+   16. Loading & Error States
+   ========================================================================== */
+
+/* Full-viewer loading overlay */
+.pptx-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 100;
+  gap: 12px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.pptx-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: var(--pptx-toolbar-btn-active-bg);
+  border-radius: 50%;
+  animation: pptx-spin 0.8s linear infinite;
+}
+
+@keyframes pptx-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Inline error banner (e.g. invalid JSON) */
+.pptx-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.pptx-error-banner__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+
+/* ==========================================================================
+   17. Empty State (no file loaded yet)
+   ========================================================================== */
+
+.pptx-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 32px;
+}
+
+.pptx-empty-state__icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.pptx-empty-state__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.pptx-empty-state__subtitle {
+  font-size: 14px;
+  color: #9ca3af;
+  max-width: 320px;
+}
+
+
+/* ==========================================================================
+   18. Accessibility — Reduced Motion
+   All animations and transitions are disabled for users who prefer it.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .pptx-animated {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .pptx-slide-leave-active,
+  .pptx-slide-enter-active {
+    animation: none !important;
+  }
+
+  .pptx-loading__spinner {
+    animation: none !important;
+    border-color: var(--pptx-toolbar-btn-active-bg);
+  }
+}
+
+
+/* ==========================================================================
+   19. Focus Styles — Keyboard Navigation
+   ========================================================================== */
+
+.pptx-toolbar__tab:focus-visible,
+.pptx-btn:focus-visible,
+.pptx-thumbnail:focus-visible {
+  outline: 2px solid var(--pptx-toolbar-btn-active-bg);
+  outline-offset: 2px;
+}
+
+
+/* ==========================================================================
+   20. Print — Hide UI chrome, show only the active slide
+   ========================================================================== */
+
+@media print {
+  .pptx-toolbar,
+  .pptx-toolbar__panel,
+  .pptx-thumbnail-panel {
+    display: none !important;
+  }
+
+  .pptx-body {
+    display: block;
+  }
+
+  .pptx-main {
+    padding: 0;
+    background: none;
+  }
+
+  .pptx-slide {
+    box-shadow: none;
+    transform: none !important;
+    width: 100%;
+    height: auto;
+  }
+}
